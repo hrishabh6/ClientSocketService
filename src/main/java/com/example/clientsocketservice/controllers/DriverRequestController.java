@@ -6,6 +6,7 @@ import com.example.clientsocketservice.dto.RideResponseDto;
 
 import com.example.clientsocketservice.dto.UpdateBookingRequestDto;
 import com.example.clientsocketservice.dto.UpdateBookingResponseDto;
+import com.example.clientsocketservice.producers.KafkaProducerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -25,10 +26,12 @@ public class    DriverRequestController {
 
     private final SimpMessagingTemplate template;
     private final RestTemplate restTemplate;
+    private final KafkaProducerService kafkaProducerService;
 
-    public DriverRequestController(SimpMessagingTemplate template) {
+    public DriverRequestController(SimpMessagingTemplate template, KafkaProducerService kafkaProducerService) {
         this.template = template;
         this.restTemplate = new RestTemplate();
+        this.kafkaProducerService = kafkaProducerService;
     }
 
     @PostMapping("/newride")
@@ -37,8 +40,14 @@ public class    DriverRequestController {
         return ResponseEntity.ok(true);
     }
 
+    @GetMapping
+    public ResponseEntity<Boolean> help() {
+        kafkaProducerService.sendMessage("sampleTopic", "Hello from kafka producer");
+        return ResponseEntity.ok(true);
+    }
 
-   public void sendToDriver(RideRequestDto request) {
+
+    public void sendToDriver(RideRequestDto request) {
         //Todo : the request should go to only nearby drivers
         template.convertAndSend("/topic/rideRequest", request);
 
@@ -52,8 +61,8 @@ public class    DriverRequestController {
                         .status("SCHEDULED")
                         .build();
         ResponseEntity<UpdateBookingResponseDto> result = restTemplate.postForEntity("http://localhost:7479/api/v1/booking/"+ request.getBookingId(),updateBookingRequestDto, UpdateBookingResponseDto.class);
+        kafkaProducerService.sendMessage("sampleTopic", "Ride accepted by Driver : " + userId);
         System.out.println( "The staatus code " + result.getStatusCode());
    }
-
 
 }
